@@ -1,93 +1,95 @@
 package graph;
 
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Random;
 
 public class GraphBuilder {
 	private Graph graph;
-	private double alpha;
-	private Random setUpGen;
-
-	public GraphBuilder(double alpha) {
-		graph = new Graph();
-		this.alpha = alpha;
-		setUpGen = new Random(System.currentTimeMillis());
-		initialise();
-	}
-
-	private void initialise() {
-		for (int index = 0; index < 3; index++) {
-			graph.addNode(new Node(Graph.nodeCount));
-		}
-		for(Node n : graph.getNodes()){
-			for(Node n2 : graph.getNodes()){
-				if(!n.equals(n2) && !n.isConnectedTo(n2))
-					n.connect(n2);
-				//System.out.println(n.getID() + " " + n2.getID());
+    private double alpha;
+    private Random setUpGen;
+    public GraphBuilder(double alpha, int initialNodeNumber) {
+    	graph = new Graph(alpha);
+    	this.alpha = alpha;
+    	setUpGen = new Random(System.currentTimeMillis());
+    	initialise(initialNodeNumber);
+    }
+    private void initialise(int initialNodeNumber) {
+    	for (int index = 0; index < initialNodeNumber; index++) {
+    		graph.addNode(new Node(Graph.nodeCount));
+    	}
+    		//connect all nodes to each other
+        for(Node aNode : graph.getNodes()){
+        	for(Node other : graph.getNodes()){
+        		if(!aNode.equals(other) && !aNode.isConnectedTo(other)){
+        			aNode.connect(other);
+        			graph.updateStats(other);
+        		}
+            }
+        }
+    }
+    public void growGraph(int size){
+    	ArrayList <Node> candidates = new ArrayList<Node>();
+    	for(int index=0; index<size;index++){
+    		Node newNode = new Node(Graph.nodeCount);
+    		getCandidates(candidates, alpha);
+    		if(candidates.size() > 0){
+    			int randomIndex = Math.abs(setUpGen.nextInt()) % candidates.size();
+    			Node toConnectTo = candidates.get(randomIndex);
+    			newNode.connect(toConnectTo);
+    			graph.updateStats(toConnectTo);
+    			graph.addNode(newNode);
+    			candidates.clear();
+    		}
+    	}
+    }
+    private void getCandidates(ArrayList<Node> candidates, double alpha){
+    		//the value degree^alpha for the node with largest degree
+    	double largestProbability = graph.getLargestProbability();
+		for(Node aNode : graph.getNodes()){
+				//if theres more than one node with this largest degree
+			if(Math.pow(aNode.getDegree(),alpha)>=largestProbability){
+				candidates.add(aNode);
 			}
 		}
-	}
+    }
+   
+    private void printGraph(PrintWriter fwriter) throws IOException {
+    	fwriter.println("*Vertices "+(graph.nodeCount));
+        for (Node n : graph.getNodes()) {
+           fwriter.println((n.getID()+1));
+        }
+        fwriter.println("*Edges");
+        for (Node n : graph.getNodes()) {
+        	for (Node adj : n.getAdjacencyList()) {
+        		fwriter.println((n.getID()+1)+" "+(adj.getID()+1));
+        	}
+        }
+    }
+    private void printGraph2(PrintWriter fwriter) throws IOException {
+    	 for (Node n : graph.getNodes()) {
+             fwriter.println((n.getID()+1) + "," + n.getAdjacencyList().size());
+          }
+    }
 
-	private void growGraph(int size) {
-		Random setUpGen2 = new Random(System.currentTimeMillis());
-		Node temp = null;
-		int bestDegree = 0;
-		for(int index=0; index< size; index++){
-			int currentDegreeTotal=0;
-			Node newNode = new Node(Graph.nodeCount);
-			for(Node n : graph.getNodes()){
-				currentDegreeTotal+= Math.pow(n.getDegree(), alpha);
-				if(n.getDegree()>=bestDegree){
-					temp=n;
-					bestDegree = n.getDegree();
-				}
-			}
-			graph.addNode(newNode);
-			newNode.connect(temp);
-			
-		
-		}
-		/*double currentDegreeTotal = 0;
-		double prob=0;
-		Node tmpNode=null;
-		for(int index=0; index< size; index++){
-			currentDegreeTotal = 0;
-			Node newNode = new Node(Graph.nodeCount);
-			for(Node n : graph.getNodes()){
-				currentDegreeTotal+= Math.pow(n.getDegree(), alpha);
-			}
-			
-			int index2 = Math.abs(setUpGen.nextInt()) % Graph.nodeCount;
-			Node someNode = graph.getNodes().get(index2);
-			//tmpNode = someNode;
-			int endPoint = index2-1;
-			while(index2!=endPoint){
-				System.out.println(index2 + " "+ endPoint);
-				someNode = graph.getNodes().get(index2);
-				double tmpProb = Math.pow(someNode.getDegree(), alpha)/currentDegreeTotal;
-				if(tmpProb>=prob){
-					prob = tmpProb;
-					tmpNode=someNode;
-				}
-				
-				index2=(index2 + 1)%graph.nodeCount;
-			}
-			graph.addNode(newNode);
-			newNode.connect(tmpNode);
-		}*/
-	}
-
-	private void printGraph() {
-		for (Node n : graph.getNodes()) {
-			for (Node adj : n.getAdjacencyList()) {
-				System.out.println(n.getID() + " : " + adj.getID());
-			}
-			System.out.println();
-		}
-	}
-
-	public static void main(String[] args) {
-		GraphBuilder gb = new GraphBuilder(new Double(1));
-		gb.growGraph(26);
-		gb.printGraph();
-	}
+    public static void main(String[] args) throws IOException {
+    	double alpha =Double.parseDouble(args[0]);
+    	int initialNodePopulation = Integer.parseInt(args[1]);
+    	int finalPopulationSize = Integer.parseInt(args[2]);
+        GraphBuilder gb = new GraphBuilder(alpha, initialNodePopulation);
+        gb.growGraph(finalPopulationSize);
+        PrintWriter graphFile = new PrintWriter(new FileOutputStream("dataFile"+alpha+".net"));
+        PrintWriter degreeFile = new PrintWriter(new FileOutputStream("degreeFile"+alpha));
+        gb.printGraph(graphFile);
+        gb.printGraph2(degreeFile);
+        degreeFile.flush();
+        degreeFile.close();
+        graphFile.flush();
+        graphFile.close();
+    }
 }
+
+
